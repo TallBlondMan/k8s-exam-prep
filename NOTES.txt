@@ -1,4 +1,115 @@
-1. Multiple Schedulers:
+kubectl get all -l foo=bar - to get all of items with labels
+kubectl replace --force -f sample.yaml - replace the created item with a new one(delete+apply/create)
+
+1. ##################### To taint a Node: #####################
+    kubectl taint nodes <node-name> key=value:(taint-effect) 
+    taint-effect:
+        1. NoSchedule
+        2. PreferNoSchedule
+        3. NoExecute
+2. ##################### To make pod tolerant: #####################
+    spec:
+    tolerations:
+    - key: "app"
+        operator: "Equal"
+        value: "blue"
+        effect: NoSchedule
+
+3. ##################### Node Labels and Affinity: #####################
+    kubectl label nodes <node-name> <label-key>=<label-value> - put a label on a node
+    To make pod select a node:
+    spec:
+    nodeSelector:
+        label-key: label-value
+4. ##################### Pod Affinity: #####################
+    spec:
+    affinity:
+        nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:    --->>> will NOT deploy if no label found
+                            OR
+        preferredDuringSchedulingIgnoredDuringExecution:   --->>> will deploy if no label found
+            nodeSelectorTerms:
+            - matchExpressions:
+            - key: label-key
+                operator: In --->>> https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#operators 
+                values:
+                - label-value1
+                - label-value2
+                - ...
+
+5. ##################### Pod RESOURCE and LIMIT: #####################
+    resources:
+      requests:     --->>> How much will it want on start
+        memory: 1Gi
+        cpu: 1
+      limits:       --->>> How much will it allow to get
+        memory: 2Gi -->> If memory is exeded it will terminate the pod with OOM status
+        cpu: 3      -->> CPU will be throteled
+Requests SET and NO limits are the most optimal way
+We can define a LimitRange - it can be set for NAMESPACEs:
+LimitRange only apply to newly created pods!!
+    apiVersion: v1
+    kind: LimitRange
+    metadata:
+      name: cpu-resource-constraint
+    spec:
+      limits:
+      - default:
+          cpu: 500m
+        defaultRequest:
+          cpu: 500m
+        max:
+          cpu: 1
+        min:
+          cpu: 100m
+        type: Container  
+Another way is to set ResourceQuota - it's a Namespace object:
+    apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+      name: some-rq 
+    spec:
+      hard:
+        requset.cpu: 4
+        request.memory: 4Gi
+        limits.cpu: 10
+        limits.memory: 10Gi
+PODs cannot be fully edited, most of fields are blocked (image, dedlineSeconds and tolerations can)
+    kubectl get pod <pod-name> -o yaml > the-pod-to-edit.yaml --->>> and then kubectl delete <pod-name> --->>> kubectl create -f the-pod-to-edit.yaml
+Deployment template can be change all together - so it's better to edit a deploymet pod in a deployment file
+    kubectl edit deploy <deployment-name> 
+
+*** In describe there is LastState: <Reason> - for pod termination *** 
+
+6. ##################### DaemonSets - simmilar to ReplicaSet, it's used for monitoring and networking #####################
+*** Easy to modify deployed yaml for DaemonSet yaml ***
+Past 1.12 it uses NodeAffinity to deploy to nodes
+    apiVersion: apps/v1
+    kind: DaemonSet
+    metadata:
+      name: monitoring-d
+    spec:
+      selector:
+        matchLabels:
+          app: monitoring
+      template:
+        metadata:
+          labels:
+            app: monitoring
+        spec:
+          containers:
+          - name: monitoring-agent
+            image: minitoring-agent
+
+7. ##################### Static PODs - created on Node by "kubelet" in a designated folder #####################
+*** They do not have the random number in the name???!!! ***
+*** LERN WHERE THE SERVICES FILES RESIDE *** 
+It's defined in the kublet.service file as either:
+ - --pod-manifest-path-/etc/some/path
+ - --config=kubeconfig.yaml => staticPodPath=/etc/some/path
+
+
+8. ##################### Multiple Schedulers: #####################
 Must have different names 
 Deploy additional scheduler as a POD:           --->>> To assign a POD to scheduler need to add "schedulerName: into spec: 
 
@@ -29,7 +140,7 @@ Deploy additional scheduler as a POD:           --->>> To assign a POD to schedu
         image: k8s.gcr.io/kube-scheduler-amd64:v1.11.3
         name: kube-scheduler
 
- 2. Scheduler Profiles:
+ 9. ##################### Scheduler Profiles ########################
  Pods first end up in scheduling queue          --->>> this can be modified assigining priorityClass: on pod spec: | this class has to be created via "kind: PriorityClass"
 Then it scores the nodes, the more resource stay the better
 Then it's binding
@@ -40,13 +151,13 @@ Scheduling Queue    ->     Filtering      ->       Scoring      ->      Binding 
                     - NodeName              - ImageLocality                         -->> These are the pluggins
                     - NodeUnscheduable
 
-3. Monitoring!!!
+10. ################# Monitoring ########################
 For Minikube - minikube addons enable metrics-server 
 Others - git clone https://github.com/kodekloudhub/kubernetes-metrics-server.git 
 ** kubectl top node **  -->> to monitor nodes
 ** kubectl top pod **   -->> to monitor pods 
 
-### 2.1 Application Lifecycle ###
+11. ##################### Application Lifecycle #####################
 This applies to deployments
 kubectl rollout status deployment/my-deployment         --->>> Checking the status of rollout on deployment 
 kubectl rollout history deployment/my-deployment        --->>> Checking the Revisions history 
@@ -58,7 +169,7 @@ Deployment strategies:
   1. Recreate - All pods go down and get replaced
   2. Rolling Update(default) - Pods go down one by one and replace the same way
 
-4. Application Configuration:
+12. ##################### Application Configuration: #####################
 command:
 - "command"     -->> ENTRYPOINT
 args:           -->> CMD
