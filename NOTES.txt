@@ -63,4 +63,5 @@ command:
 - "command"     -->> ENTRYPOINT
 args:           -->> CMD
 
-kubectl run nginx --image=nginx --command -- <CMD> <ARG> ... <ARG>      -->> This -- sends command into container, otehr words separates commands for pod and container 
+kubectl run nginx --image=nginx --command -- <CMD> <ARG> ... <ARG>      -->> This -- sends command into container, otehr words separates commands for pod and container
+ 
