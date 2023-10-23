@@ -1,0 +1,66 @@
+1. Multiple Schedulers:
+Must have different names 
+Deploy additional scheduler as a POD:           --->>> To assign a POD to scheduler need to add "schedulerName: into spec: 
+
+    **my-schedul.yaml**
+    apiVersion: kubescheduler.config.k8s.io/v1
+    kind: KubeSchedulerConfiguration
+    profiles:
+    - schedulerName: my-scheduler               --->>> the uniqe name
+    leaderElection:                             --->>> Only one leader can be selected
+      leaderElect: true
+      ressourceNamespace: kube-system
+      ressourceName: lock-object-my-scheduler
+
+    **custom-scheduler-as-pod.yaml**
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: my-custom-scheduler
+      namepsace: kube-system
+    spec:
+      containers:
+      - command:
+        - kube-scheduler
+        - --address=127.0.0.1
+        - --kubeconfig=/path/to/scheduler.conf  --->> This drive has to be mount first into the pod
+        - --config=/path/to/my-schedul.yaml     --->> This drive has to be mount first into the pod
+
+        image: k8s.gcr.io/kube-scheduler-amd64:v1.11.3
+        name: kube-scheduler
+
+ 2. Scheduler Profiles:
+ Pods first end up in scheduling queue          --->>> this can be modified assigining priorityClass: on pod spec: | this class has to be created via "kind: PriorityClass"
+Then it scores the nodes, the more resource stay the better
+Then it's binding
+Phases:
+Scheduling Queue    ->     Filtering      ->       Scoring      ->      Binding      -->> Phases
+  (queueSort)              (filter)               (score)               (bind)      -->> Extension Points - these are the extensions to which a custom plugin can bind(there are pre and post)
+- PrioritySort      - NodeRessourceFit      - NodeRessourceFit     - DefaultBinder  -----------------------------
+                    - NodeName              - ImageLocality                         -->> These are the pluggins
+                    - NodeUnscheduable
+
+3. Monitoring!!!
+For Minikube - minikube addons enable metrics-server 
+Others - git clone https://github.com/kodekloudhub/kubernetes-metrics-server.git 
+** kubectl top node **  -->> to monitor nodes
+** kubectl top pod **   -->> to monitor pods 
+
+### 2.1 Application Lifecycle ###
+This applies to deployments
+kubectl rollout status deployment/my-deployment         --->>> Checking the status of rollout on deployment 
+kubectl rollout history deployment/my-deployment        --->>> Checking the Revisions history 
+
+kubectl apply -f my-deployment.yaml                     --->>> Rollout a change if there are changes made to file
+kubectl rollout undo deployment/my-deployment           --->>> Back out of a rollout
+
+Deployment strategies:
+  1. Recreate - All pods go down and get replaced
+  2. Rolling Update(default) - Pods go down one by one and replace the same way
+
+4. Application Configuration:
+command:
+- "command"     -->> ENTRYPOINT
+args:           -->> CMD
+
+kubectl run nginx --image=nginx --command -- <CMD> <ARG> ... <ARG>      -->> This -- sends command into container, otehr words separates commands for pod and container 

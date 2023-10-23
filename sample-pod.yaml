@@ -1,0 +1,14 @@
+apiVersion: v1 
+kind: Pod
+metadata:
+  name: my-pod
+  labels:
+    app: sample
+    type: front-end
+spec:
+  containers:
+  - name: alpina-container
+    image: alpine
+    command: 
+    - sleep
+    args: ["5000"]
