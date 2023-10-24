@@ -76,13 +76,15 @@ Another way is to set ResourceQuota - it's a Namespace object:
         limits.memory: 10Gi
 PODs cannot be fully edited, most of fields are blocked (image, dedlineSeconds and tolerations can)
     kubectl get pod <pod-name> -o yaml > the-pod-to-edit.yaml --->>> and then kubectl delete <pod-name> --->>> kubectl create -f the-pod-to-edit.yaml
-Deployment template can be change all together - so it's better to edit a deploymet pod in a deployment file
+
+Deployment template can be change all together 
+So it's better to edit a deploymet pod in a deployment file
     kubectl edit deploy <deployment-name> 
 
 *** In describe there is LastState: <Reason> - for pod termination *** 
 
 6. ##################### DaemonSets - simmilar to ReplicaSet, it's used for monitoring and networking #####################
-*** Easy to modify deployed yaml for DaemonSet yaml ***
+                          *** Easy to modify deployed yaml for DaemonSet yaml ***
 Past 1.12 it uses NodeAffinity to deploy to nodes
     apiVersion: apps/v1
     kind: DaemonSet
@@ -170,9 +172,12 @@ Deployment strategies:
   2. Rolling Update(default) - Pods go down one by one and replace the same way
 
 12. ##################### Application Configuration: #####################
-command:
-- "command"     -->> ENTRYPOINT
-args:           -->> CMD
+
+  containers: 
+  - name: ...
+    command:                          --->>> RUN COMMAND IN A CONTAINER
+    - "command"     -->> ENTRYPOINT
+    args:           -->> CMD
 
 kubectl run nginx --image=nginx --command -- <CMD> <ARG> ... <ARG>      -->> This -- sends command into container, otehr words separates commands for pod and container
 
@@ -185,8 +190,9 @@ POD ENVIRONMENT:
         - name: APP_ENV
           value: "prod"
 
-*** ConfigMaps: *** 
+#####################  ConfigMaps: ######################  
 These are sets of ENVIRONMENT variables for pods
+
 ** ConfigMap: **                                    --->>> To crate ConfigMap: kubectl create configmap <name> --from-literal=APP_ENV=prod 
     apiVersion: v1                                                         OR: kubectl create -f myconfig-map.yaml 
     kind: ConfigMap
@@ -204,7 +210,8 @@ Use configmap in Pod:
           name: my-config-map
         - ...
 
-** Secrets: **
+#####################  Secrets: ##################### 
+
 Work tha same as ConfigMaps can be created with     --->>> kubectl create secret <name> --from-literal=KEY=value
 Best to use "echo -n 'value' | base64" ==> then store it in plain text
 This is still bad and can be doceded - use Encription At Rest
@@ -226,14 +233,21 @@ Additionaly secrets and configmaps can be injected into POD via:
             name: <name_of_secret_object>
             key: <the_key_of_desired_secret>
 
-  volumes:                          --->>> volume mount
+  containers:                       --->>> volume mount
+  - name: ...
+    volumeMounts:
+    - name: the-secret-volume
+      mountPath: "/path/to/secret"
+  volumes:                          
   - name: the-secret-volume
     secret:
       secretName: db-passwrd
 
 14. ##################### Multi Container Pod: #####################
+
 Share the same network and can call each other localhost
 Part of the same Pod object, containers: definition is an array hence:
+
   spec:
     containers:
     - name: the-big-db
@@ -242,4 +256,134 @@ Part of the same Pod object, containers: definition is an array hence:
     - name: the-small-monitor
       image: alpine
       ...
-      
+
+There are 3 common patterns for multicontainer POD:
+-SIDECAR
+-ADAPTER
+-AMBASADOR
+
+##################### Init Containers #####################
+They run before the actuall containers, one by one untill completion
+If one fails the pod is restarted untill success or if restartPolicy: Never it fails
+
+You can get logs from that containers as well
+** kubectl logs <pod-name> -c <init-container-name>
+
+Might be used as a healthcheck for another service:
+for i in {1..100}; do sleep 1; if nslookup myservice; then exit 0; fi; done; exit 1
+
+Or to clone a repo to a mounted volume
+
+##################### Cluster Maintanance #####################
+
+** NODE Draining and cordining: **
+kubectl drain node01              --->>> This will shut down all pods on nodes and mark the node as unavailable for use in upgrading 
+                                          Pods have to be part of Deployment/replicaSet for this to work
+kubectl cordon node01             --->>> This just MARKS the node as unavailable
+kubectl uncordon node01           --->>> This just UN-MARKS the node so that pods can be scheduled back on it
+
+** Kubernetes versions **
+
+https://github.com/kubernetes/kubernetes
+
+##################### CLUSTER Update #####################
+https://v1-27.docs.kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/
+
+Kube-apiserver is the brain X
+ControllManager and kube-scheduler might be 1 version lower X-1
+kubelet and kube-proxy might be 2 versions lower X-2
+kubectl can be 1 ver higher or lower X-1 or X+1 
+
+* Upgrade Options: *
+1. CloudProvider - will do it for you when installed on CloudProvider
+2. kubeadm - when you installed with kubeadm
+3. The Hard Way - when you installed all componets by yourself
+
+* Upgrade schema: *
+ALWAYS UPGRADE ONE MINOR UP 1.10.1 -->> 1.11.0 or 1.11.0 -->> 1.12.0
+1st - Upgrade Master Nodes
+2nd - Upgrade the worker Nodes
+
+* Upgrade strategy: *
+Upgrade Master then all nodes at once - tha 
+Upgrade Master then node by node - less app downtime
+Upgrade MAster then provision new machines with new version - Cloud Provider
+
+* How to do it with kubeadm *
+
+  *** master node upgrade ***
+  kubeadm upgrade plan
+  apt-get upgrade kubeadm=1.12.0-00
+  kubeadm upgrade apply v1.12.0         -->> This command will be displayd by the "plan" command
+  --- kubeapi is upgraded ---
+
+  *** kubelet upgrade ***               -->> There is no kubelet on master node when installing from scrach
+  apt-get upgrade kubelet=1.12.0
+  systemctl restart kubelet
+  --- kubelet is upgraded ---
+
+  *** Upgrade the nodes ***
+  kubectl drain <node-name>
+  ssh into node
+  apt-get upgrade kubeadm=1.12.0-00
+  apt-get upgrade kubelet=1.12.0
+  kubeadm upgrade node config --kubelet-version v1.12 
+  systemctl restart kubelet
+  ssh back
+  kubectl uncordon <node-name>
+  --- Upgrade of nodes done --- 
+
+##################### CLUSTER BackUp #####################
+
+The configuration in declarative way is saved in files
+But you can ask API for all imperative changes:
+  kubectl get all -A -o yaml > current-config.yaml
+
+*VELERO* - 3rd party
+
+ETCD (export ETCDCTL_API=3 --> before use)- holds all the info of cluster so the location of it's data can be backed up
+  ps -aux | grep etcd
+  systemctl status etcd.service
+
+OR
+########### Create Backup ##############
+Tell the etcdctl to snapshot the config:
+
+  etcdctl snapshot save saved-config.db 
+
+Side Note: 
+ - you might need to use flags:
+    --cacert
+    --cert 
+    --endpoints=[127.0.0.1:2379]
+    --key
+This above is used when etcdctl is comunicating with a POD, this is the case with kubeadm deployment
+You need to specify it for the ETCDCTL to know from where to get the backup
+If the ETCD is TLS encrypted
+
+########### Restore Backup ###########
+
+To use it for restore you have to stop kube-apiserver.service:
+  systemctl stop kube-apiserver
+  etcdctl snapshot restore saved-config.db --data-dir /var/lib/new-data-dir
+
+And then configure etcd.service or POD to use new data directory:
+  --data-dir=/var/lib/new-data-dir
+
+For POD you have to fiddle with pod definition in manifest folder:
+  etcdctl --data-dir=/var/lib/new-data-dir
+
+And add the new directory as a volume path:
+  volumes:
+  - hostPath:
+      Path: /var/lib/new-data-dir
+
+  Reload services and start back! 
+
+kubectl config - managing multiple clusters, changing context
+etcdctl \
+ --endpoints=https://127.0.0.1:2379 \
+ --cacert=/etc/etcd/pki/ca.pem \
+ --cert=/etc/etcd/pki/etcd.pem \
+ --key=/etc/etcd/pki/etcd-key.pem \
+  member list
