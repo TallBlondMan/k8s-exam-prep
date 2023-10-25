@@ -387,3 +387,23 @@ etcdctl \
  --cert=/etc/etcd/pki/etcd.pem \
  --key=/etc/etcd/pki/etcd-key.pem \
   member list
+
+kube-apiserver - has the etcd address           -->> POD
+kubelet - might also have this configuration    -->> SERVICE
+
+If ETCD is a remote cluster - the backups have to be made with --endpoints --cacert --cert --key 
+
+Important if ETCD is a service and you create a --data-dir=<new-dir> you HAVE to allow only etcd user to access it:
+chown -R etcd /<new-dir> 
+
+###################### Security ######################
+
+Communication betwen API and other control services uses TSL
+
+## USERS ## 
+Auth via kube-apiserver:
+  Basic option is to create a CSV file with password,user,uid columns
+  and pass it as --basic-auth-file=<the-file.csv> in kube-apiserver definition
+
+  Then you need to create according roles for them and they can authenticate on API server:
+  curl -v -k https://localhost:6443/api/v1/pods -u user:password
