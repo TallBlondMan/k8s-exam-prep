@@ -105,9 +105,9 @@ Past 1.12 it uses NodeAffinity to deploy to nodes
 
 7. ##################### Static PODs - created on Node by "kubelet" in a designated folder #####################
 *** They do not have the random number in the name???!!! ***
-*** LERN WHERE THE SERVICES FILES RESIDE *** 
+*** LERN WHERE THE SERVICES FILES RESIDE ***      --->> By default in /etc/kubernetes/manifests 
 It's defined in the kublet.service file as either:
- - --pod-manifest-path-/etc/some/path
+ - --pod-manifest-path=/etc/some/path
  - --config=kubeconfig.yaml => staticPodPath=/etc/some/path
 
 
@@ -407,3 +407,27 @@ Auth via kube-apiserver:
 
   Then you need to create according roles for them and they can authenticate on API server:
   curl -v -k https://localhost:6443/api/v1/pods -u user:password
+
+## Certificates ##
+
+"The Hard Way"
+You have to create all the certs by yourself - this is tedious
+
+"kubeadm" - auto provisioning tool
+This creates the certs for you and the information about them(location) is stored in the kube-apiserver.yml definition
+
+To check if the cert is  good run 
+"openssl x509 -in /path/to/certificate.crt -text -noout"
+Then you need to check if the cert is Expired(date)                     --->>> you can check expiration with "kubeadm certs check-expiration"
+If the Issuer is valid
+Subject
+Organization
+And alternative names
+
+The list of certificates is available on - https://kubernetes.io/ 
+
+To check for issues with logs go:
+  journalctl -u etcd.service -l - the hard way
+  kubectl logs etcd-pod - the kubeadm way
+  docker logs k8s-container-etcd - if the kubectl broke down
+
