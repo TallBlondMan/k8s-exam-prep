@@ -201,6 +201,7 @@ These are sets of ENVIRONMENT variables for pods
     data:                                           --->>> Uses data instead of spec
       APP_VERSION: 1.0.1
       APP_ENV: prod
+
 Use configmap in Pod:
   spec:
     containers:
@@ -238,7 +239,8 @@ Additionaly secrets and configmaps can be injected into POD via:
     volumeMounts:
     - name: the-secret-volume
       mountPath: "/path/to/secret"
-  volumes:                          
+
+  volumes:                          --->>> location to use for volume
   - name: the-secret-volume
     secret:
       secretName: db-passwrd
@@ -410,10 +412,10 @@ Auth via kube-apiserver:
 
 ## Certificates ##
 
-"The Hard Way"
+  "The Hard Way"
 You have to create all the certs by yourself - this is tedious
 
-"kubeadm" - auto provisioning tool
+  "kubeadm" - auto provisioning tool
 This creates the certs for you and the information about them(location) is stored in the kube-apiserver.yml definition
 
 To check if the cert is  good run 
@@ -426,8 +428,156 @@ And alternative names
 
 The list of certificates is available on - https://kubernetes.io/ 
 
-To check for issues with logs go:
-  journalctl -u etcd.service -l - the hard way
-  kubectl logs etcd-pod - the kubeadm way
-  docker logs k8s-container-etcd - if the kubectl broke down
+To check for issues with certs go:
+  journalctl -u etcd.service -l   - the hard way
+  kubectl logs etcd-pod           - the kubeadm way
+  docker logs k8s-container-etcd  - if the kubectl broke down
+  crictl ps -a                    - will also show the logs of selected pod if kubectl is broken
+  docker ps -a                    - will do the same
+
+## Controlplane ports ##
+
+  TCP	Inbound	6443	Kubernetes API server	All
+  TCP	Inbound	2379-2380	etcd server client API	kube-apiserver, etcd
+  TCP	Inbound	10250	Kubelet API	Self, Control plane
+  TCP	Inbound	10259	kube-scheduler	Self
+  TCP	Inbound	10257	kube-controller-manager	Self
+
+## Certificate API and Requests ##
+DETAILS - https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/ 
+
+Control Manager is responsible for managing the cert rotation:
+- CSR-APPROVING
+- CSR-SIGNING 
+The Cert and Key for that is specified in kube-controll-manager.yaml in /etc/kubernetes/manifest/ folder
+
+Certificate Signing Requests commands:
+
+kubectl get csr
+kubectl certificate approve/deny <name of certificate>
+
+    apiVersion: certificates.k8s.io/v1
+    kind: CertificateSigningRequest
+    metadata:
+      name: <name of the object>
+    spec:
+      groups:
+      - system:authenticated
+      - ...
+      request: <base64 encoded CSR>
+      signerName: kubernetes.io/kube-apiserver-client
+      usages:
+      - client auth 
+      - ...
+
+## KubeConfig ##
+
+    KubeConfig is a file where all the certificates for kubectl are stored.
+  Or rather authentication details for cluster and user, can be multible of both
+
+Default is to look for file config in: 
+  $HOME/.kube/config
+
+To see the current control file use:
+  kubectl config view 
+
+To change current context use:
+  kubectl config use-context <name of context>
+
+To use another file without replacing the original use:
+  kubectl config --kubeconfig my-kube-config [COMMAND]
+
+Kubeconfig.yaml
+  apiVersion: v1
+  kind: Config
+  current-context: some-kube-admin@some-kube-server                               --->>> Default context to use
+  clusters:
+   - name: some-kube-server
+     cluster: 
+       certificate-authority: /etc/kubernetes/pki/ca/ca.crt                        --->>> Best use full paths
+       server: https://some-kube-cluster:6443
+   - ...
+  contexts:
+   - name: some-kube-admin@some-kube-server
+     context:
+       cluster: some-kube-server
+       user: some-kube-admin
+       namepsace: some-namespace 
+   - ...
+  users:
+   - name: some-kube-admin
+     user:
+       client-certificate: etc/kubernetes/pki/user/client-cert.crt
+       client-key: etc/kubernetes/pki/user/client-key.key
+   - ... 
+
+
+### API Groups ### 
+
+  All resources in K8s are a part of API group you can access it via:
+    curl https://kube-api-server:6443 -k --cert <cert file> --key <key-file> --cacert <CA cert file>
+
+### Authorization ###  
+
+  We have few methods of authorization into cluser:
+    - Node - that's access within the cluser, for users and nodes 
+    - A(tribute)BAC - it's a file in which you assing access in JSON format for users and groups 
+    - R(ole)BAC - you create roles to which you grant access these roles are then assigned for users and groups
+    - Webhook - it's a 3rd party provider to which API will call for verification of access
+  and also:
+    - AlwaysAllow
+    - AlwaysDeny 
+  
+  Mode is speified in kube-apiserver configuration with(set to AlwaysAllow as default):
+    --authorization-mode=RBAC,Webhook ...
+
+## RBAC ## 
+
+To get roles on cluster
+  kubectl get roles
+
+To get Role bindings
+  kubectl get rolebindings
+
+Describe the role/binding
+  kubectl describe role/rolebinding <name>
+
+To check for access/permision you can 
+  kubectl auth can-i create deploymens
+  kubectl auth can-i delete nodes 
+
+For others
+  kubectl auth can-i create deploymens --as some-user
+  kubectl auth can-i delete nodes --as some-other-user --namespace default
+
+Role example:
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    namespace: default
+    name: pod-reader
+  rules:
+   - apiGroups: [""]                                                          -->> "" indicates the core API group
+     resources: ["pods"]                                                      -->> Resource to which the access is granted
+     verbs: ["get", "watch", "list"]                                          -->> actions that can be taken
+     resourceNames: ["finance-pods", "hr-pods"]
+   - apiGroups: [""]
+     resource: ["ConfigMap"]
+     verbs: ["list", "create"]
+  
+Role binding example(This role binding allows "jane" to read pods in the "default" namespace):
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    name: read-pods
+    namespace: default
+  subjects:
+  - kind: User
+    name: jane                                            -->> "name" is case sensitive
+    apiGroup: rbac.authorization.k8s.io
+  - ...
+  roleRef:
+    kind: Role
+    name: pod-reader                                      -->> You need to already have a Role named "pod-reader" in that namespace
+    apiGroup: rbac.authorization.k8s.io
 
