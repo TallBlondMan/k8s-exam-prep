@@ -45,9 +45,11 @@ kubectl replace --force -f sample.yaml - replace the created item with a new one
       limits:       --->>> How much will it allow to get
         memory: 2Gi -->> If memory is exeded it will terminate the pod with OOM status
         cpu: 3      -->> CPU will be throteled
+
 Requests SET and NO limits are the most optimal way
 We can define a LimitRange - it can be set for NAMESPACEs:
 LimitRange only apply to newly created pods!!
+
     apiVersion: v1
     kind: LimitRange
     metadata:
@@ -62,7 +64,8 @@ LimitRange only apply to newly created pods!!
           cpu: 1
         min:
           cpu: 100m
-        type: Container  
+        type: Container 
+
 Another way is to set ResourceQuota - it's a Namespace object:
     apiVersion: v1
     kind: ResourceQuota
@@ -74,6 +77,7 @@ Another way is to set ResourceQuota - it's a Namespace object:
         request.memory: 4Gi
         limits.cpu: 10
         limits.memory: 10Gi
+
 PODs cannot be fully edited, most of fields are blocked (image, dedlineSeconds and tolerations can)
     kubectl get pod <pod-name> -o yaml > the-pod-to-edit.yaml --->>> and then kubectl delete <pod-name> --->>> kubectl create -f the-pod-to-edit.yaml
 
@@ -517,7 +521,7 @@ Kubeconfig.yaml
   All resources in K8s are a part of API group you can access it via:
     curl https://kube-api-server:6443 -k --cert <cert file> --key <key-file> --cacert <CA cert file>
 
-### Authorization ###  
+###################### Authorization ######################  
 
   We have few methods of authorization into cluser:
     - Node - that's access within the cluser, for users and nodes 
@@ -531,7 +535,13 @@ Kubeconfig.yaml
   Mode is speified in kube-apiserver configuration with(set to AlwaysAllow as default):
     --authorization-mode=RBAC,Webhook ...
 
-## RBAC ## 
+## Role Based Access Control ## 
+
+To create role/rolebinding 
+  kubectl create role/rolebinding
+
+To edit role/rolebinding
+  kubectl edit role/rolebinding
 
 To get roles on cluster
   kubectl get roles
@@ -581,3 +591,154 @@ Role binding example(This role binding allows "jane" to read pods in the "defaul
     name: pod-reader                                      -->> You need to already have a Role named "pod-reader" in that namespace
     apiGroup: rbac.authorization.k8s.io
 
+## Cluster Roles ##
+
+Used to assign access to cluster wide resources - Storage, Nodes as well as namespaced resources
+You can assign a role to list pods in all namespaces 
+
+
+kubectl api-resources --namespaced=true                   -->> Get the namespaced resources(pods, deployments, jobs, replicas)
+kubectl api-resources --namespaced=false                  -->> Get the rest of resources(nodes, PVs, clusterRoles, clusterRolebindings)
+
+Cluster Role example:
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:                                             -->> "namespace" omitted since ClusterRoles are not namespaced
+      name: secret-reader
+    rules:
+    - apiGroups: [""]
+      resources: ["secrets"]
+      verbs: ["get", "watch", "list"]
+    - apiGroups: [""]
+      resources: ["nodes"]
+      verbs: ["list", "get", "create"]
+
+Cluster Role Binding example:
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: read-secrets-global
+    subjects:
+    - kind: Group
+      name: manager
+      apiGroup: rbac.authorization.k8s.io
+    - kind: User
+      name: jhon
+      apiGroup: rbac.authorization.k8s.io
+    roleRef:
+      kind: ClusterRole
+      name: secret-reader
+      apiGroup: rbac.authorization.k8s.io
+
+#### Service Accounts ####
+
+Bots that can do work for you like for cluster scaling or other Maintanance actions
+They are created with token already - stored as a secret
+
+!!! Past 1.24 the token is not created automatically !!!
+!!! and it is not a secrete object !!!
+
+But the token gets a finite ttl as opose to pre 1.22
+
+To create a service account
+  kubectl create serviceaccount <name>
+
+To create a token for account
+  kubectl create token <name of serviceaccount>
+
+They can be used with RoleBinding 
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: read-pods
+      namespace: default
+    subjects:
+    - kind: ServiceAccount
+      name: dashboard-sa # Name is case sensitive
+      namespace: default
+
+## Private Image Repos ## 
+
+Like with docker but to allow K8s to authenticate on the server you need to create secret.
+K8s has a special secret type docker-registry regcred:
+  kubectl create secret docker-registry regcred \
+    --docker-server=  \
+    --docker-username=  \
+    --docker-password=  \
+    --docker-email=   
+
+To use it in deployment/pod
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: private-reg
+    spec:
+      containers:
+      - name: private-reg-container
+        image: <your-private-image>
+      imagePullSecrets:                               --->>> Specifing the credentials
+      - name: regcred
+
+## Security context ##
+
+Docker and K8s allow to run processes as different users
+You can specify the user with wich the container is run in both
+
+Example for POD:
+    ...
+    spec:
+      securityContext:
+        runAsUser: 1000
+      containers:
+        ...
+
+Example for container within POD:
+    ...
+    spec:
+      containers:
+      - image: neginx:alpine
+        name: some-web-container
+        securityContext:
+          runAsUser: 1000                             --->>> runAsUser only accepts int64 so no "root" use id command to get user id
+          capabilities: 
+            add: ["MAC_ADMIN"]                        --->>> Only available for container level
+
+###################### Network Policies ######################
+
+Ingrees and Egrees - allow or deny trafic in the cluster
+
+Network Policy Example: 
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:                                         --->>> If only Ingress is specified here only ingress will be modified
+    - Ingress                                                 so egress would not be affected and the trafic out will flow at will
+    - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 172.17.0.0/16
+        except:
+          - 172.17.1.0/24
+    - namespaceSelector:
+        matchLabels:
+          project: myproject
+    - podSelector:
+        matchLabels:
+          role: frontend
+  ports:
+  - protocol: TCP
+    port: 6379
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.0.0.0/24
+    ports:
+    - protocol: TCP
+      port: 5978
