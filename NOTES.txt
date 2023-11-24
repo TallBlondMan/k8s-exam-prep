@@ -708,37 +708,164 @@ Example for container within POD:
 Ingrees and Egrees - allow or deny trafic in the cluster
 
 Network Policy Example: 
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: test-network-policy
-  namespace: default
-spec:
-  podSelector:
-    matchLabels:
-      role: db
-  policyTypes:                                         --->>> If only Ingress is specified here only ingress will be modified
-    - Ingress                                                 so egress would not be affected and the trafic out will flow at will
-    - Egress
-  ingress:
-  - from:
-    - ipBlock:
-        cidr: 172.17.0.0/16
-        except:
-          - 172.17.1.0/24
-    - namespaceSelector:
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: test-network-policy
+      namespace: default
+    spec:
+      podSelector:                                         --->>> Match object for which the np will apply - POD of name "db"
         matchLabels:
-          project: myproject
-    - podSelector:
-        matchLabels:
-          role: frontend
-  ports:
-  - protocol: TCP
-    port: 6379
-  egress:
-  - to:
-    - ipBlock:
-        cidr: 10.0.0.0/24
-    ports:
-    - protocol: TCP
-      port: 5978
+          role: db
+      policyTypes:                                         --->>> If only Ingress is specified here only ingress will be modified
+        - Ingress                                                 so egress would not be affected and the trafic out will flow at will
+        - Egress
+      ingress:
+      - from:
+        - ipBlock:                                          --->>> This is for adrresses outisde the cluster - eg. Backup Server
+            cidr: 172.17.0.0/16
+            except:
+              - 172.17.1.0/24
+      1.========================                            --->>> This will allow PODS from namespace myproject and pods of name frontend to access
+        - namespaceSelector:                                --->>> This alone will alow all trific from namespace my project to access the 
+            matchLabels:
+              project: myproject
+        - podSelector:                                      --->>> Which POD can comunicate with POD "db" - POD of name "frontend"
+            matchLabels:                                        
+              role: frontend
+      2.========================
+        - namespaceSelector:                               
+            matchLabels:
+              project: myproject
+          podSelector:                                      --->>> If this is done like this it's and AND operator
+            matchLabels:                                           PODS from namespace myproject of name frontend can access   
+              role: frontend
+        ========================
+        ports:                                              --->>> On what port the communication will be allowed - either outside or inside cluster
+        - protocol: TCP
+          port: 6379
+      - from:                                               --->>> You can add more of these
+        - podSelector:
+            matchLabels:
+              name: backend
+          ports:
+          - protocol: TCP
+            port: 8080
+      egress:                                               --->>> All of the above apply to egress as well 
+      - to:
+        - ipBlock:
+            cidr: 10.0.0.0/24
+        ports:
+        - protocol: TCP
+          port: 5978
+
+###################### Storage ######################
+
+Kubernetes uses CSI(Container Storage Interface) - hehe - for storage driver
+
+#### Volumes & Mounts ####
+
+Volumes can be mounted the same way as in docker container
+
+As bind:
+    apiVersion: v1
+    kind: Pod
+    metadata: 
+      name: some-pod
+    spec:
+      containers:
+      - name: some-container
+        image: alpine
+        command: ["/bin/sh", "-c"]
+        args: ["echo 123 >> /opt/data.txt"]
+        volumeMounts: 
+        - mountPath: /opt
+          name: data-volume
+
+    volumes:                                        --->>> This is local version the block can be replaced 
+    - name: data-volume                                     by virutualy any storage provider - AWS, Cephfs etc. 
+      hostPath:
+        path: /home/user/data 
+        type: directory
+    ========================== 
+    volumes:                                         --->>> AWS as a example
+    - name: data-volume
+      awsElasticBlockStore:                          --->>> (not available in v1.27) - now the go to is sci 
+        volumeID: <the ID>
+        type: xfs 
+
+#### Persistent Volumes and Claims ####
+
+We have: 
+
+Persistent Volume - a chunk of space from which PODs can reserv a part with claim
+Persistent Volume Claim - a request from POD to get the space it's 1:1 relation
+
+That's why we have StorageClases 
+You can use selectors and labels 
+
+PVC doesn't need to be cteated with a PV in mind - the cluster will try and automatically select a PV for a Claim 
+The PVC wil get the whole space of PV that it was bound to - even if the request asked for less 
+
+Persistent Volume example:
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: example-pv
+    spec:
+      capacity:
+        storage: 100Gi
+      awsElasticBlockStore:                          --->>> (not available in v1.27) - now the go to is sci 
+        volumeID: <the ID>
+        type: xfs       
+
+Persistent Volume Claim example:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: my-pvc
+    spec: 
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        request:
+          storage: 500Mi
+      persistentVolumeReclaimPolicy: Retain/Delete/Recycle      --->>> Select what will happen to the volume
+                                                                        - Retain - will remain until deleted(not to reuse)
+                                                                        - Deleted - when claim goes away the volume goes away
+                                                                        - Recycle - the volume will be available for other calaims
+
+Usage in POD: 
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: my-pod
+    spec:
+      containers:
+        - name: my-frontend
+          image: nginx
+          volumeMounts:
+          - mountPath: "/var/www/html"
+            name: my-pvc
+      volumes:
+        - name: my-pvc
+          persistentVolumeClaim:
+            claimName: myclaim
+
+#### Storage Class ####
+
+Storage Class is like a PV creation definition.
+It uses the Cloud Provider to provision a PV on a specified location
+In PVC you then specify what StorageClass to use and the above happens
+
+StorageClass example:
+    apiVersion: storage.k8s.io/v1
+    kind: StorageClass
+    metadata:
+      name: aws-gc2-storageclass
+    provisioner: kubernetes.io/aws-ebs
+    parameters:
+      type: gp2
+    reclaimPolicy: Retain
+    allowVolumeExpansion: true
+    volumeBindingMode: Immediate
