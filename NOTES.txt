@@ -561,39 +561,39 @@ For others
   kubectl auth can-i delete nodes --as some-other-user --namespace default
 
 Role example:
-  apiVersion: rbac.authorization.k8s.io/v1
-  kind: Role
-  metadata:
-    namespace: default
-    name: pod-reader
-  rules:
-   - apiGroups: [""]                                                          -->> "" indicates the core API group
-     resources: ["pods"]                                                      -->> Resource to which the access is granted
-     verbs: ["get", "watch", "list"]                                          -->> actions that can be taken
-     resourceNames: ["finance-pods", "hr-pods"]
-   - apiGroups: [""]
-     resource: ["ConfigMap"]
-     verbs: ["list", "create"]
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      namespace: default
+      name: pod-reader
+    rules:
+    - apiGroups: [""]                                                          -->> "" indicates the core API group("v1")
+      resources: ["pods"]                                                      -->> Resource to which the access is granted
+      verbs: ["get", "watch", "list"]                                          -->> actions that can be taken
+      resourceNames: ["finance-pods", "hr-pods"]
+    - apiGroups: [""]
+      resource: ["ConfigMap"]
+      verbs: ["list", "create"]
   
 Role binding example(This role binding allows "jane" to read pods in the "default" namespace):
-  apiVersion: rbac.authorization.k8s.io/v1
-  kind: RoleBinding
-  metadata:
-    name: read-pods
-    namespace: default
-  subjects:
-  - kind: User
-    name: jane                                            -->> "name" is case sensitive
-    apiGroup: rbac.authorization.k8s.io
-  - ...
-  roleRef:
-    kind: Role
-    name: pod-reader                                      -->> You need to already have a Role named "pod-reader" in that namespace
-    apiGroup: rbac.authorization.k8s.io
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: read-pods
+      namespace: default
+    subjects:
+    - kind: User
+      name: jane                                            -->> "name" is case sensitive
+      apiGroup: rbac.authorization.k8s.io
+    - ...
+    roleRef:
+      kind: Role
+      name: pod-reader                                      -->> You need to already have a Role named "pod-reader" in that namespace
+      apiGroup: rbac.authorization.k8s.io
 
 ## Cluster Roles ##
 
-Used to assign access to cluster wide resources - Storage, Nodes as well as namespaced resources
+Used to assign access to cluster wide resources(not namespaced) - Storage, Nodes as well as namespaced resources
 You can assign a role to list pods in all namespaces 
 
 
@@ -657,11 +657,11 @@ They can be used with RoleBinding
       name: dashboard-sa # Name is case sensitive
       namespace: default
 
-## Private Image Repos ## 
+#### Private Image Repos #### 
 
 Like with docker but to allow K8s to authenticate on the server you need to create secret.
-K8s has a special secret type docker-registry regcred:
-  kubectl create secret docker-registry regcred \
+K8s has a special secret type docker-registry:
+  kubectl create secret docker-registry reg-cred \
     --docker-server=  \
     --docker-username=  \
     --docker-password=  \
@@ -679,7 +679,7 @@ To use it in deployment/pod
       imagePullSecrets:                               --->>> Specifing the credentials
       - name: regcred
 
-## Security context ##
+#### Security context ####
 
 Docker and K8s allow to run processes as different users
 You can specify the user with wich the container is run in both
@@ -699,7 +699,7 @@ Example for container within POD:
       - image: neginx:alpine
         name: some-web-container
         securityContext:
-          runAsUser: 1000                             --->>> runAsUser only accepts int64 so no "root" use id command to get user id
+          runAsUser: 1000                             --->>> runAsUser only accepts int64 so no "root" use "id" command to get user id
           capabilities: 
             add: ["MAC_ADMIN"]                        --->>> Only available for container level
 
@@ -727,24 +727,24 @@ Network Policy Example:
             except:
               - 172.17.1.0/24
       1.========================                            --->>> This will allow PODS from namespace myproject and pods of name frontend to access
-        - namespaceSelector:                                --->>> This alone will alow all trific from namespace my project to access the 
+        - namespaceSelector:                                
             matchLabels:
               project: myproject
-        - podSelector:                                      --->>> Which POD can comunicate with POD "db" - POD of name "frontend"
+        - podSelector:                                      
             matchLabels:                                        
               role: frontend
-      2.========================
-        - namespaceSelector:                               
+      2.========================                            --->>> If this is done like this it's and AND operator
+        - namespaceSelector:                                      PODS from namespace myproject of name frontend can access   
             matchLabels:
               project: myproject
-          podSelector:                                      --->>> If this is done like this it's and AND operator
-            matchLabels:                                           PODS from namespace myproject of name frontend can access   
+          podSelector:                                      
+            matchLabels:                                           
               role: frontend
         ========================
         ports:                                              --->>> On what port the communication will be allowed - either outside or inside cluster
         - protocol: TCP
           port: 6379
-      - from:                                               --->>> You can add more of these
+      - from:                                               --->>> You can add more of FROM and TO objects
         - podSelector:
             matchLabels:
               name: backend
@@ -765,7 +765,7 @@ Kubernetes uses CSI(Container Storage Interface) - hehe - for storage driver
 
 #### Volumes & Mounts ####
 
-Volumes can be mounted the same way as in docker container
+Volumes can be mounted the same way as in docker compose - just with more description
 
 As bind:
     apiVersion: v1
@@ -782,10 +782,10 @@ As bind:
         - mountPath: /opt
           name: data-volume
 
-    volumes:                                        --->>> This is local version the block can be replaced 
-    - name: data-volume                                     by virutualy any storage provider - AWS, Cephfs etc. 
-      hostPath:
-        path: /home/user/data 
+    volumes:                                        
+    - name: data-volume                                     
+      hostPath:                                     --->>> This is local(hostPath) version the block can be replaced 
+        path: /home/user/data                               by virutualy any storage provider - AWS, Cephfs etc. 
         type: directory
     ========================== 
     volumes:                                         --->>> AWS as a example
@@ -799,10 +799,8 @@ As bind:
 We have: 
 
 Persistent Volume - a chunk of space from which PODs can reserv a part with claim
-Persistent Volume Claim - a request from POD to get the space it's 1:1 relation
-
-That's why we have StorageClases 
-You can use selectors and labels 
+Persistent Volume Claim - a request from POD to get the space it's 1:1 relation.
+                          It's rather common to create the Claim that will call upon Storage Class to create the PV as needed
 
 PVC doesn't need to be cteated with a PV in mind - the cluster will try and automatically select a PV for a Claim 
 The PVC wil get the whole space of PV that it was bound to - even if the request asked for less 
@@ -855,8 +853,8 @@ Usage in POD:
 #### Storage Class ####
 
 Storage Class is like a PV creation definition.
-It uses the Cloud Provider to provision a PV on a specified location
-In PVC you then specify what StorageClass to use and the above happens
+It uses the Cloud Provider od local disk to provision a PV on a specified location
+In PVC you then specify what StorageClass to use and the space is provisioned
 
 StorageClass example:
     apiVersion: storage.k8s.io/v1
@@ -869,3 +867,55 @@ StorageClass example:
     reclaimPolicy: Retain
     allowVolumeExpansion: true
     volumeBindingMode: Immediate
+
+###################### Networking ######################
+
+CNI takes care of networking within cluster -- DOCKER does not adheer to CNI it uses CNM and so K8s has a method to go around it 
+It creates containers with "none" network and then uses CNI plugins to add it to required network 
+
+Set of command to keep in mind when working with network on Linux:
+  ip link
+  ip addr
+  ip addr add <CIDR> dev <device-to-which-add>
+  ip addr show bridge                                 --->>> This is usually CNI configured port
+  ip route
+  ip route add <CIDR-destination> via <IP-gateway>
+  cat /proc/sys/net/ipv4/ip_forward                   --->>> file, content is 0 - false, 1 - true, for IP forwarding
+  arp
+  netstat -tulnp                                      -->> All ports
+  netstat -plnt                                       -->> Ports that listen for connection
+
+K8s supports a variaety of networking addons which names can be foud in docu
+https://kubernetes.io/docs/concepts/cluster-administration/addons/ 
+
+On exam all CNI tools are provided
+CNI is always there as K8s does not provide a native solution
+
+K8s does not solve the problem of networking within cluster - meaning:
+K8s sets rules that:
+  - Every POD should have an IP address
+  - Every POD should be able to communicate with another POD with that address
+  - Either on the same node or within the cluster
+
+CNI is configured in the kubelet.service on each node under:
+  --network-plugin=cni
+  --cni-bin-dir=/opt/cni/bin                          --->>> Those 2 are default? 
+  --cni-conf-dir=/etc/cni/net.d
+
+CNIs are usually a POD running in specific namespace and configuration to them is mounted as volumes
+
+#### Services and Networking ####
+
+Services are not node specific - they exist on the cluster and hence do not exist at all...
+kube-proxy is taking care of putting correct entry in iptables to route the request to service to correct pod
+  10.10.10.2(a NodePort service address) --> 10.20.0.12:8080(a POD that will hosts a web service on port 8080)
+    NodePort will chose a node port to expose from range 30050-30257 or sth
+
+These rules can be found on host when running:
+  iptables -L -t nat 
+
+And more can be seen in 
+  /var/log/kube-proxy.log
+
+Service IP range is configured in the kube-apiserver.yaml manifest:
+    - --service-cluster-ip-range=10.96.0.0/12
