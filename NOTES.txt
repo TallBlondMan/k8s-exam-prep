@@ -919,3 +919,35 @@ And more can be seen in
 
 Service IP range is configured in the kube-apiserver.yaml manifest:
     - --service-cluster-ip-range=10.96.0.0/12
+
+To check kube-proxy method check the kube-proxy logs:
+  kubectl logs -n kube-proxy-{id} 
+
+#### Cluster DNS ####
+
+By default cluster has a DNS installed
+And PODs can comunicate with services by their name
+PODs do not get a DNS record by default but this can be overwritten 
+
+SERVICES:
+For same namespce:
+  ping webfrond 
+
+For other namespace:
+  ping webfront.<namespace-name> = ping webfront.frontend
+
+DNS further clasifies this as:
+  ping webfront(service).frontend(namespace).svc(all-services).cluster.local(all pods and services)
+  ping webfront.frontend.svc.cluster.local
+
+PODS:
+For same namespce:
+  ping ip-of-the-pod
+  ping 10-244-0.15
+
+For other namespace:
+  ping 10-244-0.15.webfront
+
+Full:
+  ping 10-244-0.15.frontend.pod.cluster.local
+
