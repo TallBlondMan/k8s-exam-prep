@@ -951,3 +951,131 @@ For other namespace:
 Full:
   ping 10-244-0.15.frontend.pod.cluster.local
 
+#### INGRESS ####
+
+It does not come as default! - you have to deploy it, the Ingress Controler
+
+This is an API object - like PODs, Deployments, Services, ClusterRoles etc.
+It manages EXTERNAL access to the services inside cluster - typically HTTP
+This my includes:
+  - load balancing
+  - SSL termination
+  - name-based virtual hosting
+
+NOTE: Ingress is frozen - no new features are added 
+      New stuff is "Gateway API" 
+
+Ingress is deployed as 
+  1. Ingress Controler - the solution that provides the load-balancing, reverse proxy, cert assignment(Nginx, HAProxy, Traefik, Istio)
+  2. Ingress Resource - the set of configurations that are passed to controller telling it how to behave
+
+Ingress Controler Deployment example:                             -->> This is usually available on provider site (Nginx, Traefik, HAProxy etc.)
+    apiVersion: extensions/v1beta1 
+    kind: Deployment
+    metadata:
+      name: nginx-ingress-controller-deployment
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          name: nginx-ingress
+        template:
+          metadata:
+            labels:
+              name: nginx-ingress
+          spec:
+            containers:
+            - name: nginx-ingress-controller
+              image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
+              args:
+              - /nginx-ingress-controler 
+              - -- configmap=$(POD_NAMESPACE)/nginx-configuration
+              env:
+              - name: POD_NAME 
+                valueFrom:
+                  fieldRef:
+                    fieldPath metadata.name
+              - name: POD_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath metadata.namespace
+              ports: 
+              - name: http
+                containerPort: 80 
+              - name: https
+                containerPort: 443
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata: 
+      name: nginx-ingress
+    spec:
+      type: NodePort
+      ports:
+      - port: 80
+        targetPort: 80
+        protocol: TCP
+        name: http 
+      - port: 443
+        targetPort: 443
+        protocol: TCP
+        name: https
+      selector:
+        name: nginx-ingress
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: nginx-ingress-serviceaccount
+    ---
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: nginx-ingress-controler-config
+    data: 
+      ... 
+
+All that is needed for a very basic Ingress Controler - thses are highlighted on provider site
+
+You can create Ingress "template" 
+  kubectl create ingress <name> --rule="host/path=service:port"
+  kubectl create ingress <name> --rule="wear.my-online-store.com/wear*=wear-service:80"
+
+Ingress example:
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      name: ingress-wildcard-host
+    spec:
+      rules:
+      - host: "foo.bar.com"
+        http:
+          paths:
+          - pathType: Prefix
+            path: "/bar"
+            backend:
+              service:
+                name: service1
+                port:
+                  number: 80
+      - host: "*.foo.com"
+        http:
+          paths:
+          - pathType: Prefix
+            path: "/foo"
+            backend:
+              service:
+                name: service2
+                port:
+                  number: 80
+
+To list ingresses
+  kubectl get ing -A
+
+Annotations are a sort of configuration for how the request should be relayed to services
+For example:
+  annotations:                                                    --->>> This will tell the controler to not past the request as is with e.g. path /something
+    nginx.ingress.kubernetes.io/rewrite-target: /                       this might cause error as the app under this service might not have the /something path and just serves / "root"
+                                                                        hence this will translate the "/something" into "/" for the applies
+
+###################### Planing and creating a cluster ######################
