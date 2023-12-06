@@ -1139,3 +1139,59 @@ https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
  - check logs
  - check status
  - check config map 
+
+ ###################### JSON_PATH ######################
+
+Simple:
+JSON is a bit more clutered YAML
+
+    car:                  
+      name: honda
+      model: accord
+      price: 30000
+      wheels: 
+      - type: front
+        serialNumber: xX69Xx
+      - type: back 
+        serialNumber: Xx420xX
+
+      is rqual to
+
+    {
+      "car":{
+        "name": "honda",
+        "model": "accord",
+        "price": "30000",
+        "wheels": [
+          {
+            "type": "front",
+            "serialNumber": "xX69Xx"
+          },
+          {
+            "type": "back",
+            "serialNumber": "xX420Xx"
+          }
+        ]
+      }
+    }
+Now fun part - you can query the JSON for info:
+ 
+ $.car                  -->> Will get the whole car
+ $.car.model            -->> Will get the {"accord"} 
+ $.car.wheel[0]         -->> Will get the {"type": "front", "serialNumber": "xX69Xx"}
+ $.car.wheel[1].type    -->> Will get the {"back"}
+
+Now best part - you can use if statement:
+
+ $.car.wheel[?(@.type == "front")].serialNumber    -->> Get the  "xX69Xx"
+                  [?(@ > 40)]                      -->> All items grater than 40
+                  [?(@ in [40,42])]                -->> All items in list
+                  [?(@ nin [42])]                  -->> All NOT in      
+
+And then we have WILDCARDS - *
+ $.*.wheels[*].model     -->> Gets you all the models of wheels on all cars
+ $[0,1]                  -->> element 0 and 1
+ $[0:2]                  -->> element 0 and 1
+ $[0:4:2]                -->> element 0 and 2
+ $[-1:]                  -->> get last element
+
