@@ -1037,7 +1037,7 @@ Ingress Controler Deployment example:                             -->> This is u
 
 All that is needed for a very basic Ingress Controler - thses are highlighted on provider site
 
-You can create Ingress "template" 
+You can create Ingress from "template" - the imperative way 
   kubectl create ingress <name> --rule="host/path=service:port"
   kubectl create ingress <name> --rule="wear.my-online-store.com/wear*=wear-service:80"
 
@@ -1079,3 +1079,63 @@ For example:
                                                                         hence this will translate the "/something" into "/" for the applies
 
 ###################### Planing and creating a cluster ######################
+
+Planning is situational and there are some rules for HA.
+
+Simple and bare-bone cluster will have a one control plane with all components - taints can be adjusted if we want the pods to get deployed
+HA will require:
+- At least 2 Master Nodes
+- Separate nodes for ETCD - 3-5-7(non-plural)
+- Desired number of worker nodes - the more nodes, the more load can be applied
+
+###################### Deploying Cluster ######################
+
+Best described on Kube-documentation : 
+    https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/
+
+Hard Way:
+    https://github.com/kelseyhightower/kubernetes-the-hard-way/tree/master
+
+###################### Troubleshooting ######################
+
+Kubernetes documentation has a step by step guide on Troubleshooting on all of the topics below
+
+#### Application Troubleshooting ####
+
+ - Always go from top to bottom
+ - check the names of services and pods
+ - check for ports 
+ - check logs of pods
+ - check if service endpoints are reached
+
+#### Troubleshooting Control Plane ####
+
+ - check status of nodes and pods
+ - check pods in kube-system
+ - check status of services (systemctl status kube-apiserver | systemctl status kube-control-manager | systemctl status kube-scheduler )
+ - check kubelet and kube-proxy status 
+ - check the logs of components - with kubectl logs or journalctl logs
+
+#### Troubleshooting Worker Nodes ####
+
+ - check node availability 
+ - describe node
+ - check for disk space
+ - check CPU usage
+ - kubelet status 
+ - kubelet logs for issues
+ - check kubelet certificates - CA, Issue time
+
+#### Troubleshooting Networking ####
+https://kubernetes.io/docs/tasks/administer-cluster/dns-debugging-resolution/
+
+ - Kubernetes uses CoreDNS, uses port 53, deploys: serviceaccount, clusterRoles, clusterRolebindings, deployment, configmap, service
+ - CoreDNS starts working after Netowrk Addon is installed - check first
+ - try without SeLinux
+ - check if SVC has endpoints
+ - local DNS in /etc/resolv.conf
+ - Kube-Proxy - runs on all nodes it governs network rules and it's a daemonset 
+ - kubectl describe ds kube-proxy
+ - check logs
+ - check status
+ - check config map 
