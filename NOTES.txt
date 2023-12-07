@@ -1,3 +1,44 @@
+What is KUBERNETES
+
+container orchestrator - manages containers across multiple systems.
+It is build on top of container runtime like:
+- docker
+- containerd
+- cri-o
+
+It uses CRI for pod management
+CNI plugin for Network management
+
+Consists of:
+- ETCD - a key-value store
+
+- Kube-APIServer - the API controlplane, user authentication, vakidation, update of ETCD
+- Kube-Control-Manager - Node control, Replication control
+- Kube-scheduler - decieds the fate of pods, which can be scheduled where if even can
+- kubelet - it tels the container runtime on a node how to proceed with a request, it comunicates with mother-ship
+- Kube-Proxy - looks after services, is a daemonset in kube-system namespace
+
+The main elements of Cluster:
+- POD         - smalest element of cluster, it has containers within, can have more than one
+                to create POD     
+                ->    kubectl run <name_of_pod> --image=<image_of_pod>
+- ReplicaSet  - monitors pods and deployes new when needed
+                it uses "selector:" and matches "labels:"
+- Deployments - a group of PODs working together, like docker compose?
+                can manage updates, pods down, rollbacks
+                it creates ReplicaSet 
+                ->    kubectl create deploy <name> [spec]
+- Services    - conectivity, inter POD communication, frontend availability 
+                we have: 
+                NodePort        - maps a port on Node to a port on POD
+                ClusterIP       - groups pods by labels for internal trafic control, like Backend and Frontend and Database coms
+                LoadBalancers   - Uses Cloud provieded LoadBalancers, on premise it will become NodePort or be stuck in always pending state 
+                ->    kubectl expose <pod, deployment, replicaset>
+- Namespaces  - a further division of Kubernetes workspace, it tides the space
+                communication between namespaces is possible with services like this:
+                  "ping some-service.some-other-namespace.svc.cluster.local"
+                ->    kubectl create ns <name> 
+
 kubectl get all -l foo=bar - to get all of items with labels
 kubectl replace --force -f sample.yaml - replace the created item with a new one(delete+apply/create)
 
@@ -1190,8 +1231,21 @@ Now best part - you can use if statement:
 
 And then we have WILDCARDS - *
  $.*.wheels[*].model     -->> Gets you all the models of wheels on all cars
- $[0,1]                  -->> element 0 and 1
- $[0:2]                  -->> element 0 and 1
+ $[0,3]                  -->> element 0 and 3
+ $[0:4]                  -->> element 0 and 1 and 2 and 3
  $[0:4:2]                -->> element 0 and 2
  $[-1:]                  -->> get last element
+ $[:-1]                  -->> all except last
+
+NOW we cooking
+So this all can be used in combination with kubectl commands
+  kubectl get nodes -o=jsonpath='{.items[*].kind}{'\n'}{.items[*].status}'
+
+And we can loop
+  kubectl get nodes -o=jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.memory}{"\n"}{end}'
+  {range @}{end}
+
+  kubectl get nodes -o=custom-columns=NODE:'{.metadata.name}', MEM:'{.status.capacity.memory}'
+
+And that is it - it's useful when working with lots of data 
 
