@@ -258,7 +258,7 @@ Use configmap in Pod:
 
 #####################  Secrets: ##################### 
 
-Work tha same as ConfigMaps can be created with     --->>> kubectl create secret <name> --from-literal=KEY=value
+Work tha same as ConfigMaps can be created with     --->>> kubectl create secret <name_of_secret_object> --from-literal=KEY=value
 Best to use "echo -n 'value' | base64" ==> then store it in plain text
 This is still bad and can be doceded - use Encription At Rest
 Additionaly secrets and configmaps can be injected into POD via:
@@ -273,11 +273,12 @@ Additionaly secrets and configmaps can be injected into POD via:
   spec:                             --->>> single secret 
     containers:
     - env:
-        name: secrete_passwrd
+      - name: secrete_passwrd
         valueFrom:
           secretKeyRef:
             name: <name_of_secret_object>
             key: <the_key_of_desired_secret>
+      - ...
 
   containers:                       --->>> volume mount
   - name: ...
@@ -563,6 +564,15 @@ Kubeconfig.yaml
     curl https://kube-api-server:6443 -k --cert <cert file> --key <key-file> --cacert <CA cert file>
 
 ###################### Authorization ######################  
+
+To create a user we need to:
+  1. create a SSL key for that user
+  2. create a CSR for that key
+  3. create a Certificate Signing Request object in cluster:
+      https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/#create-certificatesigningrequest
+  4. approve the request
+  5. then we can create roles and bindings
+
 
   We have few methods of authorization into cluser:
     - Node - that's access within the cluser, for users and nodes 
