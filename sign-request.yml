@@ -1,0 +1,10 @@
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: myuser
+spec:
+  request: "base64 encrypted certificate signing request"
+  signerName: kubernetes.io/kube-apiserver-client   #Required since 1.19 or sth
+  expirationSeconds: 86400  # one day
+  usages:
+  - client auth
