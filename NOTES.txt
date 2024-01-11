@@ -71,12 +71,12 @@ kubectl replace --force -f sample.yaml - replace the created item with a new one
         preferredDuringSchedulingIgnoredDuringExecution:   --->>> will deploy if no label found
             nodeSelectorTerms:
             - matchExpressions:
-            - key: label-key
-                operator: In --->>> https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#operators 
-                values:
-                - label-value1
-                - label-value2
-                - ...
+              - key: label-key
+                  operator: In --->>> https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#operators 
+                  values:
+                  - label-value1
+                  - label-value2
+                  - ...
 
 5. ##################### Pod RESOURCE and LIMIT: #####################
     resources:
@@ -122,7 +122,7 @@ Another way is to set ResourceQuota - it's a Namespace object:
 PODs cannot be fully edited, most of fields are blocked (image, dedlineSeconds and tolerations can)
     kubectl get pod <pod-name> -o yaml > the-pod-to-edit.yaml --->>> and then kubectl delete <pod-name> --->>> kubectl create -f the-pod-to-edit.yaml
 
-Deployment template can be change all together 
+Deployment template can be changed all together 
 So it's better to edit a deploymet pod in a deployment file
     kubectl edit deploy <deployment-name> 
 

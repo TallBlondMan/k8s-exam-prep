@@ -139,43 +139,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
             path: namespace
-status:
-  conditions:
-  - lastProbeTime: null
-    lastTransitionTime: "2023-10-23T21:07:01Z"
-    status: "True"
-    type: Initialized
-  - lastProbeTime: null
-    lastTransitionTime: "2023-10-23T21:07:03Z"
-    status: "True"
-    type: Ready
-  - lastProbeTime: null
-    lastTransitionTime: "2023-10-23T21:07:03Z"
-    status: "True"
-    type: ContainersReady
-  - lastProbeTime: null
-    lastTransitionTime: "2023-10-23T21:07:01Z"
-    status: "True"
-    type: PodScheduled
-  containerStatuses:
-  - containerID: containerd://b34dd39d25e019f7229d116c88ad243bf128cb8d6926e546e3b010c695518714
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
-    imageID: docker.elastic.co/elasticsearch/elasticsearch@sha256:3da16b2f3b1d4e151c44f1a54f4f29d8be64884a64504b24ebcbdb4e14c80aa1
-    lastState: {}
-    name: elastic-search
-    ready: true
-    restartCount: 0
-    started: true
-    state:
-      running:
-        startedAt: "2023-10-23T21:07:03Z"
-  hostIP: 192.39.68.9
-  phase: Running
-  podIP: 10.244.0.13
-  podIPs:
-  - ip: 10.244.0.13
-  qosClass: BestEffort
-  startTime: "2023-10-23T21:07:01Z"
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -210,6 +174,7 @@ spec:
   type: NodePort
 status:
   loadBalancer: {}
+---
 apiVersion: v1
 kind: Service
 metadata:
