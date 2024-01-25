@@ -260,7 +260,7 @@ Use configmap in Pod:
 
 Work tha same as ConfigMaps can be created with     --->>> kubectl create secret <name_of_secret_object> --from-literal=KEY=value
 Best to use "echo -n 'value' | base64" ==> then store it in plain text
-This is still bad and can be doceded - use Encription At Rest
+This is still bad and can be decoded - use Encription At Rest
 Additionaly secrets and configmaps can be injected into POD via:
 
   spec:                            --->>> whole secret 
@@ -574,8 +574,8 @@ To create a user we need to:
   5. then we can create roles and bindings
 
 
-  We have few methods of authorization into cluser:
-    - Node - that's access within the cluser, for users and nodes 
+  We have few methods of authorization into cluster:
+    - Node - that's access within the cluster, for users and nodes 
     - A(tribute)BAC - it's a file in which you assing access in JSON format for users and groups 
     - R(ole)BAC - you create roles to which you grant access these roles are then assigned for users and groups
     - Webhook - it's a 3rd party provider to which API will call for verification of access
@@ -1008,7 +1008,7 @@ It does not come as default! - you have to deploy it, the Ingress Controler
 
 This is an API object - like PODs, Deployments, Services, ClusterRoles etc.
 It manages EXTERNAL access to the services inside cluster - typically HTTP
-This my includes:
+This may include:
   - load balancing
   - SSL termination
   - name-based virtual hosting
