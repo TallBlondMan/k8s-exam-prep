@@ -1166,6 +1166,8 @@ Kubernetes documentation has a step by step guide on Troubleshooting on all of t
  - check status of services (systemctl status kube-apiserver | systemctl status kube-control-manager | systemctl status kube-scheduler )
  - check kubelet and kube-proxy status 
  - check the logs of components - with kubectl logs or journalctl logs
+ - crictl ps and crictl logs 
+ - /var/log/pods and /var/log/containers
 
 #### Troubleshooting Worker Nodes ####
 
