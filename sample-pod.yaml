@@ -12,3 +12,10 @@ spec:
     command: 
     - sleep
     args: ["5000"]
+    resources: {}
+    volumeMounts:
+    - name: empty-dir-volume
+      mountPath: /data
+  volumes:
+  - name: empty-dir-volume
+    emptyDir: {}
