@@ -10,6 +10,7 @@ spec:
   - image: kodekloud/event-simulator
     imagePullPolicy: Always
     name: app
+    resources: {}
     volumeMounts:
     - mountPath: /log
       name: log-volume
@@ -18,6 +19,7 @@ spec:
       readOnly: true
   - image: kodekloud/filebeat-configured
     name: sidecar
+    resources: {}
     volumeMounts:
     - mountPath: /var/log/event-simulator/
       name: log-volume
@@ -53,6 +55,7 @@ spec:
       value: http://elasticsearch:9200
     image: kibana:6.4.2
     name: kibana
+    resources: {}
     ports:
     - containerPort: 5601
       protocol: TCP
