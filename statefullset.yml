@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+spec:
+  serviceName: "postgresql"
+  replicas: 3
+  selector:
+    matchLabels:
+      database: postgresql
+  template:
+    metadata:
+      labels:
+        database: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:latest
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_DB
+          value: database
+        - name: POSTGRES_USER
+          value: admin
+        - name: POSTGRES_PASSWORD
+          value: pa55wordu
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgresql-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-service-for-postgresql
+spec:
+  clusterIP: None
+  selector:
+    database: postgresql
+  ports:
+  - port: 5432
+    targetPort: 5432
